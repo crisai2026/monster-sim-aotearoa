@@ -4,6 +4,8 @@ Simulador de defensa civil de kaijus en Nueva Zelanda. Un solo archivo (`index.h
 
 *A single-file NZ Civil Defence kaiju simulation. Open `index.html` in a browser to play.*
 
+https://crisai2026.github.io/monster-sim-aotearoa/
+
 ## Cómo jugar
 
 1. Abre `index.html` en Chrome o Safari (doble clic).
