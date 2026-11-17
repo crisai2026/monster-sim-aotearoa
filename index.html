@@ -102,6 +102,23 @@ h1, h2, h3, .clock, .stat b, .btn-tactical, .nav-title, .badge {
   object-fit: cover;
   display: block;
 }
+.unmute-overlay {
+  display: none;
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  z-index: 5;
+  background: rgba(2, 7, 12, 0.82);
+  border: 1px solid var(--cyan);
+  color: #fff;
+  font: 700 13px "Chakra Petch", sans-serif;
+  padding: 8px 14px;
+  border-radius: 6px;
+  cursor: pointer;
+  box-shadow: 0 0 16px rgba(56, 189, 248, 0.5);
+  animation: unmutePulse 1.4s ease-in-out infinite;
+}
+@keyframes unmutePulse { 50% { box-shadow: 0 0 26px rgba(56, 189, 248, 0.95); } }
 .btn-play-game {
   background: linear-gradient(180deg, #ff4f6d, #dc2626);
   border: 2px solid #f87171;
@@ -461,7 +478,8 @@ canvas#cv {
 
     <!-- Trailer Window -->
     <div class="intro-video-preview">
-      <video id="mainTrailerPlayer" controls autoplay muted loop playsinline preload="auto">
+      <button id="btnUnmute" class="unmute-overlay" type="button">🔊 Toca para activar el sonido</button>
+      <video id="mainTrailerPlayer" controls autoplay loop playsinline preload="auto">
         <source src="trailer.mp4" type="video/mp4">
         Your browser does not support HTML5 video playback. Ensure "trailer.mp4" is in the same directory.
       </video>
@@ -2496,10 +2514,32 @@ window.onload = function() {
   const bgTrailer = $("bgTrailerVideo");
   const videoFileInput = $("videoFileInput");
 
-  if (mainPlayer) {
-    mainPlayer.muted = true;
-    mainPlayer.play().catch(() => {});
+  // Trailer with sound. Browsers only allow autoplay WITH sound if the visitor has interacted with the
+  // site before, so: try with sound first; if the browser refuses, play muted and unmute on the very
+  // first click / tap / key press (or via the pulsing "activar el sonido" button).
+  const btnUnmute = $("btnUnmute");
+  const showUnmute = on => { if (btnUnmute) btnUnmute.style.display = on ? "block" : "none"; };
+  const gestureEvents = ["pointerdown", "keydown", "touchstart"];
+  function unmuteTrailer() {
+    if (!mainPlayer || introScreen.classList.contains("hidden")) return;
+    mainPlayer.muted = false;
+    mainPlayer.volume = 1;
+    mainPlayer.play().then(() => {
+      showUnmute(false);
+      gestureEvents.forEach(ev => document.removeEventListener(ev, unmuteTrailer));
+    }).catch(() => { mainPlayer.muted = true; showUnmute(true); mainPlayer.play().catch(() => {}); });
   }
+  if (mainPlayer) {
+    mainPlayer.muted = false;
+    mainPlayer.play().then(() => showUnmute(false)).catch(() => {
+      mainPlayer.muted = true;
+      mainPlayer.play().catch(() => {});
+      showUnmute(true);
+      gestureEvents.forEach(ev => document.addEventListener(ev, unmuteTrailer));
+    });
+    mainPlayer.addEventListener("volumechange", () => { if (!mainPlayer.muted) showUnmute(false); });
+  }
+  if (btnUnmute) btnUnmute.onclick = e => { e.stopPropagation(); unmuteTrailer(); };
 
   if (videoFileInput) {
     videoFileInput.onchange = e => {
@@ -2525,7 +2565,11 @@ window.onload = function() {
   if (btnMenu) {
     btnMenu.onclick = () => {
       introScreen.classList.remove("hidden");
-      if (mainPlayer) { mainPlayer.currentTime = 0; mainPlayer.play().catch(() => {}); }
+      if (mainPlayer) {
+        mainPlayer.currentTime = 0;
+        mainPlayer.muted = false;   // the click that opened the menu allows sound
+        mainPlayer.play().catch(() => { mainPlayer.muted = true; mainPlayer.play().catch(() => {}); showUnmute(true); });
+      }
       if (bgTrailer) bgTrailer.play().catch(() => {});
     };
   }
